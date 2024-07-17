@@ -1,7 +1,11 @@
 "use client"; 
 // pages/buy.js
 import React, { useEffect, useState } from 'react';
-import { getOrCreateAssociatedTokenAccount, createTransferInstruction } from "@solana/spl-token";
+import { getOrCreateAssociatedTokenAccount, createTransferInstruction,
+  getAssociatedTokenAddressSync,
+  createTransferCheckedWithTransferHookInstruction,
+  ASSOCIATED_TOKEN_PROGRAM_ID,TOKEN_2022_PROGRAM_ID
+ } from "@solana/spl-token";
 import { Connection, Keypair, ParsedAccountData, PublicKey, sendAndConfirmTransaction, Transaction, clusterApiUrl } from "@solana/web3.js";
 import { WalletNotConnectedError } from '@solana/wallet-adapter-base'
 import { useConnection, useWallet } from '@solana/wallet-adapter-react'
@@ -19,7 +23,7 @@ const BuyPage = () => {
   const FROM_KEYPAIR  = Keypair.fromSecretKey(Uint8Array.from(
     [70,171,122,74,133,49,93,37,81,174,84,214,116,24,247,243,119,39,56,217,127,236,242,68,63,11,216,200,58,107,12,153,126,171,62,87,0,167,60,35,50,85,21,254,89,118,138,157,63,196,255,167,185,177,160,175,187,145,247,223,85,189,201,113]
   ));
-  console.log(`My public key is: ${FROM_KEYPAIR .publicKey.toString()}.`);
+  console.log(`My public key is: ${FROM_KEYPAIR.publicKey.toString()}.`);
   const DESTINATION_WALLET = '7uvJ5sgc8w1SgZDfTmuuJvWRrziQaDYPouPUnNLSCzzu'; 
   const MINT_ADDRESS = 'DppPugQt2K1TuF5SaPiV4d56o67qfU4cfEXJqk7DwzJb'; //You must change this value!
   // 4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU usdc devnet
@@ -83,25 +87,40 @@ const BuyPage = () => {
       console.log(`Sending ${TRANSFER_AMOUNT} ${new PublicKey(MINT_ADDRESS)} from ${(FROM_KEYPAIR.publicKey.toString())} to ${(DESTINATION_WALLET)}.`)
       //Step 1
       console.log(`1 - Getting Source Token Account`);
-      let sourceAccount = await getOrCreateAssociatedTokenAccount(
-          SOLANA_CONNECTION, 
-          FROM_KEYPAIR,
+      // let sourceAccount = await getOrCreateAssociatedTokenAccount(
+      //     SOLANA_CONNECTION, 
+      //     FROM_KEYPAIR,
+      //     new PublicKey(MINT_ADDRESS),
+      //     FROM_KEYPAIR.publicKey,
+      //     signTransaction,
+      // );
+      let sourceAccount = await getAssociatedTokenAddressSync(
           new PublicKey(MINT_ADDRESS),
           FROM_KEYPAIR.publicKey,
-          signTransaction,
+          false,
+          TOKEN_2022_PROGRAM_ID,
+          ASSOCIATED_TOKEN_PROGRAM_ID,
       );
-      console.log(`    Source Account: ${sourceAccount.address.toString()}`);
+
+      console.log(`    Source Account: ${sourceAccount}`);
       
           //Step 2
       console.log(`2 - Getting Destination Token Account`);
-      let destinationAccount = await getOrCreateAssociatedTokenAccount(
-          SOLANA_CONNECTION, 
-          FROM_KEYPAIR,
+      // let destinationAccount = await getOrCreateAssociatedTokenAccount(
+      //     SOLANA_CONNECTION, 
+      //     FROM_KEYPAIR,
+      //     new PublicKey(MINT_ADDRESS),
+      //     new PublicKey(DESTINATION_WALLET),
+      //     signTransaction,
+      // );
+      let destinationAccount = await getAssociatedTokenAddressSync(
           new PublicKey(MINT_ADDRESS),
           new PublicKey(DESTINATION_WALLET),
-          signTransaction,
+          false,
+          TOKEN_2022_PROGRAM_ID,
+          ASSOCIATED_TOKEN_PROGRAM_ID,
       );
-      console.log(`    Destination Account: ${destinationAccount.address.toString()}`);
+      console.log(`    Destination Account: ${destinationAccount}`);
 
           //Step 3
       console.log(`3 - Fetching Number of Decimals for Mint: ${MINT_ADDRESS}`);
@@ -109,28 +128,50 @@ const BuyPage = () => {
       console.log(`    Number of Decimals: ${numberDecimals}`);
       
       //Step 4
-      console.log(`4 - Creating and Sending Transaction`);
-      const tx = new Transaction();
-      tx.add(createTransferInstruction(
-          // new PublicKey('Gd3VCCRBZtRSDLou3NyR9LzdsWRdAoGoV9iYhea6VsS2'),
-          // new PublicKey('9GfUhbdNgDo352sMezKnY9bLwUkdDHmatDvw8wgmQJa8'),
-          sourceAccount.address,
-          destinationAccount.address,
-          FROM_KEYPAIR.publicKey,
-          TRANSFER_AMOUNT * Math.pow(10, numberDecimals)
-      ))
+      // console.log(`4 - Creating and Sending Transaction`);
+      // const tx = new Transaction();
+      // tx.add(createTransferInstruction(
+      //     // new PublicKey('Gd3VCCRBZtRSDLou3NyR9LzdsWRdAoGoV9iYhea6VsS2'),
+      //     // new PublicKey('9GfUhbdNgDo352sMezKnY9bLwUkdDHmatDvw8wgmQJa8'),
+      //     sourceAccount.address,
+      //     destinationAccount.address,
+      //     FROM_KEYPAIR.publicKey,
+      //     TRANSFER_AMOUNT * Math.pow(10, numberDecimals)
+      // ))
 
-      const latestBlockHash = await SOLANA_CONNECTION.getLatestBlockhash('confirmed');
-      tx.recentBlockhash = await latestBlockHash.blockhash;    
-      const signature = await sendAndConfirmTransaction(SOLANA_CONNECTION,tx,[FROM_KEYPAIR]);
-      console.log(
-          '\x1b[32m', //Green Text
-          `   Transaction Success!🎉`,
-          `\n    https://explorer.solana.com/tx/${signature}?cluster=devnet`
+      // const latestBlockHash = await SOLANA_CONNECTION.getLatestBlockhash('confirmed');
+      // tx.recentBlockhash = await latestBlockHash.blockhash;    
+      // const signature = await sendAndConfirmTransaction(SOLANA_CONNECTION,tx,[FROM_KEYPAIR]);
+      // console.log(
+      //     '\x1b[32m', //Green Text
+      //     `   Transaction Success!🎉`,
+      //     `\n    https://explorer.solana.com/tx/${signature}?cluster=devnet`
+      // );
+
+
+      // setMessage('Tokens purchased successfully!');
+      const amount = 1 * 10 ** numberDecimals;
+      const bigIntAmount = BigInt(amount);
+
+      // Standard token transfer instruction
+      const transferInstruction = await createTransferCheckedWithTransferHookInstruction(
+        SOLANA_CONNECTION,
+        sourceAccount,
+        new PublicKey(MINT_ADDRESS),
+        destinationAccount,
+        FROM_KEYPAIR.publicKey,
+        bigIntAmount,
+        numberDecimals,
+        [],
+        'confirmed',
+        TOKEN_2022_PROGRAM_ID,
       );
 
-
-      setMessage('Tokens purchased successfully!');
+      const transaction = new Transaction().add(transferInstruction);
+      console.log(FROM_KEYPAIR, 'FROM_KEYPAIR')
+      const txSig = await sendAndConfirmTransaction(SOLANA_CONNECTION, transaction, [FROM_KEYPAIR], { skipPreflight: true });
+      console.log('Transfer Checked:', txSig);
+      
     } catch (error) {
       console.error('Transaction failed:', error);
       setMessage('Transaction failed: ' + error.message);
